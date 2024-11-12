@@ -45,13 +45,14 @@ def main():
     url = "https://www.wjx.cn/vm/Oxelygh.aspx"  # 问卷地址
     count = 80  # 要多少份问卷
 
-    # 设置必选项
-    random_preference_choices = []
-    random_preference_choices.extend(get_random_character())
-    random_preference_choices.extend(get_random_preference())
+    def get_random_choices():
+        choices = []
+        choices.extend(get_random_character())
+        choices.extend(get_random_preference())
+        return choices
     loop = 0
     while True:
-        handle_one_page(url)
+        handle_one_page(url, get_random_choices())
         loop += 1
         print(loop)
         if loop > count:

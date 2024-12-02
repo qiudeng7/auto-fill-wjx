@@ -5,11 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python 调试程序: 当前文件",
+            "name": "QuesFiller",
             "type": "debugpy",
             "request": "launch",
-            "program": "main.py",
-            "console": "integratedTerminal"
-        }
+            "module": "wjx.QuesFiller"
+        },
+        {
+            "name": "RolePreferenceManager",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "wjx.RolePreferenceManager"
+        },
     ]
 }

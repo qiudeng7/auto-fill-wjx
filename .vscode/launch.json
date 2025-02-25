@@ -5,6 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Questionnaire",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "wjx.Questionnaire"
+        },
+        {
             "name": "QuesFiller",
             "type": "debugpy",
             "request": "launch",

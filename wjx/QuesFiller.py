@@ -1,11 +1,14 @@
 from .Questionnaire import Questionnaire
 from .RolePreferenceManager import RolePreferenceManager
 from DrissionPage._elements.chromium_element import ChromiumElement
+from DrissionPage import ChromiumPage
+from DrissionPage.errors import NoRectError
 from .Config import Config
 import random
 from .logger import logger
 import os
 import json
+import time
 
 
 class QuestionareFiller:
@@ -29,20 +32,32 @@ class QuestionareFiller:
 
             while record[role] < totalCount[role]:
                 ques = Questionnaire()
-                # TODO 这里可以改成只walk一次
-                ques.walkQuestions(
-                    _type=Questionnaire.questionType["单选题"],
-                    callback=lambda field: self.fillSingleChoiceQues(
-                        field, oneRolePref
-                    ),
-                )
-                ques.walkQuestions(
-                    _type=Questionnaire.questionType["多选题"],
-                    callback=lambda field: self.fillMultiChoiceQues(field, oneRolePref),
-                )
+                ques.optimizedWalkQuestions({
+                    ques.questionType["单选题"]: lambda field: self.fillSingleChoiceQues(field, oneRolePref),
+                    ques.questionType["多选题"]: lambda field: self.fillMultiChoiceQues(field, oneRolePref),
+                    ques.questionType["填空题"]: lambda field: self.fillTextQues(
+                        field, oneRolePref)
+                })
+                # # TODO 这里可以改成只walk一次
+                # ques.walkQuestions(
+                #     _type=Questionnaire.questionType["单选题"],
+                #     callback=lambda field: self.fillSingleChoiceQues(
+                #         field, oneRolePref
+                #     ),
+                # )
+                # ques.walkQuestions(
+                #     _type=Questionnaire.questionType["多选题"],
+                #     callback=lambda field: self.fillMultiChoiceQues(
+                #         field, oneRolePref),
+                # )
+                # ques.walkQuestions(
+                #     _type=Questionnaire.questionType["填空题"],
+                #     callback=lambda field: self.fillTextQues(
+                #         field, oneRolePref),
+                # )
 
                 def submitSuccess():
-                    nonlocal loop 
+                    nonlocal loop
                     loop += 1
                     record[role] += 1
                     self.setRecord(record)
@@ -51,13 +66,32 @@ class QuestionareFiller:
                     )
                 ques.submit(successCallback=submitSuccess)
 
+    def fillTextQues(self, field: ChromiumElement, oneRolePref: dict):
+        quesText = field.s_ele("css:.field-label").text
+        rolePrefQuesList = oneRolePref["填空题"]
+
+        # 从角色偏好配置中找到匹配的题目和答案
+        matchingRolePrefQues = next(
+            (
+                rolePrefQues
+                for rolePrefQues in rolePrefQuesList
+                if quesText == rolePrefQues["题目"]
+            ),
+            None,
+        )
+        if not matchingRolePrefQues:
+            raise ValueError("当前题目在角色偏好配置中不存在。")
+
+        # 填写答案
+        field.ele("tag:input").input(matchingRolePrefQues["答案"])
+
     # TODO fillSingleChoiceQues 和 fillMultiChoiceQues 相似度很高
     def fillSingleChoiceQues(self, field: ChromiumElement, oneRolePref: dict):
 
         # TODO 这里获取quesText和下面获取choice 和rolePreference里的重复出现了，
         # 对DrissionPage的控制可以合并到Questionnaire里
-        quesText = field.s_ele("css:.field-label").s_ele("tag:div").text
-        rolePrefQuesList = oneRolePref["单选"]
+        quesText = field.s_ele("css:.field-label").text
+        rolePrefQuesList = oneRolePref["单选题"]
 
         # 从角色偏好配置中找到匹配的题目和权重
         matchingRolePrefQues = next(
@@ -82,8 +116,8 @@ class QuestionareFiller:
                 break
 
     def fillMultiChoiceQues(self, field: ChromiumElement, oneRolePref: dict):
-        quesText = field.s_ele("css:.field-label").s_ele("tag:div").text
-        rolePrefQuesList = oneRolePref["多选"]
+        quesText = field.s_ele("css:.field-label").text
+        rolePrefQuesList = oneRolePref["多选题"]
 
         # 从角色偏好配置中找到匹配的题目和权重
         matchingRolePrefQues = next(
@@ -102,7 +136,8 @@ class QuestionareFiller:
         choices = list(choiceWeights.keys())
         weights = [choiceWeights[choice] for choice in choices]
         choiceNumber = random.randint(2, len(choices))
-        selectedChoices = random.choices(choices, weights=weights, k=choiceNumber)
+        selectedChoices = random.choices(
+            choices, weights=weights, k=choiceNumber)
         for choice in field.eles("css:.label"):
             if choice.text in selectedChoices:
                 choice.click()

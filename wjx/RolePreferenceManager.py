@@ -15,7 +15,8 @@ class RolePreferenceManager:
     """
 
     parentPath = os.path.dirname(os.path.abspath(__file__))
-    rolePrefConfDir = os.path.join(parentPath, "configs", "RolePreferenceConfigs")
+    rolePrefConfDir = os.path.join(
+        parentPath, "configs", "RolePreferenceConfigs")
 
     @classmethod
     def rolePrefConfExists(cls):
@@ -30,6 +31,7 @@ class RolePreferenceManager:
             logger.info("RolePreferenceConfigs已存在")
 
         # 获取目录下所有roles
+        # 二编，这里的roles会在QuesFiller里使用。
         self.roles = []
         for filename in os.listdir(self.rolePrefConfDir):
             filepath = os.path.join(self.rolePrefConfDir, filename)
@@ -49,7 +51,8 @@ class RolePreferenceManager:
                 f"角色 '{role}' 的配置文件 '{rolePrefConfPath}' 不存在"
             )
 
-        defaultRolePrefConfPath = os.path.join(self.rolePrefConfDir, "default.json")
+        defaultRolePrefConfPath = os.path.join(
+            self.rolePrefConfDir, "default.json")
         with open(defaultRolePrefConfPath, "r", encoding="utf-8") as f:
             defaultPrefConf: dict = json.loads(f.read())
 
@@ -85,6 +88,7 @@ class RolePreferenceManager:
 
         self.singleChoiceQuestions = []
         self.multiChoicesQuestions = []
+        self.textQuestions = []
         ques = Questionnaire()
         ques.walkQuestions(
             _type=Questionnaire.questionType["单选题"],
@@ -94,28 +98,47 @@ class RolePreferenceManager:
             _type=Questionnaire.questionType["多选题"],
             callback=self.extractMultipleChoices,
         )
+        ques.walkQuestions(
+            _type=Questionnaire.questionType["填空题"],
+            callback=self.extractTextQues,
+        )
         rolePrefConfTemplate = {
-            "单选": self.singleChoiceQuestions,
-            "多选": self.multiChoicesQuestions,
+            "单选题": self.singleChoiceQuestions,
+            "多选题": self.multiChoicesQuestions,
+            "填空题": self.textQuestions,
         }
 
-        templateString = json.dumps(rolePrefConfTemplate, ensure_ascii=False, indent=4)
-        defaultRolePrefConfPath = os.path.join(self.rolePrefConfDir, "default.json")
+        templateString = json.dumps(
+            rolePrefConfTemplate, ensure_ascii=False, indent=4)
+        defaultRolePrefConfPath = os.path.join(
+            self.rolePrefConfDir, "default.json")
         with open(defaultRolePrefConfPath, "w", encoding="utf-8") as f:
             f.write(templateString)
 
         for role in Config()["roleCount"]:
-            specRolePrefConfPath = os.path.join(self.rolePrefConfDir, f"{role}.json")
+            specRolePrefConfPath = os.path.join(
+                self.rolePrefConfDir, f"{role}.json")
             with open(specRolePrefConfPath, "w", encoding="utf-8") as f:
                 f.write(templateString)
         logger.info("RolePreferenceConfigs生成完毕。")
 
+    def extractTextQues(self, field: ChromiumElement):
+        """
+        提取填空题的题目和选项
+        """
+        question = field.s_ele("css:.field-label").text
+        result = {"题目": question, "答案": "无"}
+        self.textQuestions.append(result)
+
     # TODO extractSingleChoice 和 extractMultipleChoices 相似度很高
+
     def extractSingleChoice(self, field: ChromiumElement):
         """
         提取单选题的题目和选项
         """
-        question = field.s_ele("css:.field-label").s_ele("tag:div").text
+        # TODO field.s_ele("css:.field-label").text被用了四次，
+        # 应该单独写一个Question类，里面写一个getQuestionText方法，walkQuestions应该返回Question对象
+        question = field.s_ele("css:.field-label").text
         choices = [choice.text for choice in field.s_eles("css:.label")]
         result = {"题目": question, "选项权重": {}}
         for choice in choices:
@@ -126,7 +149,7 @@ class RolePreferenceManager:
         """
         提取多选题的题目和选项
         """
-        question = field.s_ele("css:.field-label").s_ele("tag:div").text
+        question = field.s_ele("css:.field-label").text
         choices = [choice.text for choice in field.s_eles("css:.label")]
         result = {"题目": question, "选项权重": {}}
         for choice in choices:
